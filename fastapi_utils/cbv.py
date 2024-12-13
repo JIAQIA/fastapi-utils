@@ -8,7 +8,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    get_type_hints,
+    get_type_hints, Awaitable,
 )
 
 import pydantic
@@ -160,7 +160,19 @@ def _allocate_routes_by_method_name(router: APIRouter, url: str, function_member
                 api_resource(func)
 
 
-def _update_cbv_route_endpoint_signature(cls: Type[Any], route: Union[Route, WebSocketRoute]) -> None:
+def _construct_cls(cls: Type[T]) -> Callable[..., T | Awaitable[T]]:
+    """
+    Constructs a class instance from a class type.
+    """
+    if hasattr(cls, "__async_init__"):
+        async def async_init() -> T:
+            return await cls.__async_init__()
+        return async_init
+    else:
+        return cls
+
+
+def _update_cbv_route_endpoint_signature(cls: Type[T], route: Union[Route, WebSocketRoute]) -> None:
     """
     Fixes the endpoint signature for a cbv route to ensure FastAPI performs dependency injection properly.
     """
@@ -168,7 +180,8 @@ def _update_cbv_route_endpoint_signature(cls: Type[Any], route: Union[Route, Web
     old_signature = inspect.signature(old_endpoint)
     old_parameters: List[inspect.Parameter] = list(old_signature.parameters.values())
     old_first_parameter = old_parameters[0]
-    new_first_parameter = old_first_parameter.replace(default=Depends(cls))
+    c = _construct_cls(cls)
+    new_first_parameter = old_first_parameter.replace(default=Depends(c))
     new_parameters = [new_first_parameter] + [
         parameter.replace(kind=inspect.Parameter.KEYWORD_ONLY) for parameter in old_parameters[1:]
     ]

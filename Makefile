@@ -8,7 +8,7 @@ all_src = $(pkg_src) $(tests_src)
 
 mypy_base = mypy --show-error-codes
 mypy = $(mypy_base) $(all_src)
-test = pytest --cov=$(pkg_src)
+test = poetry run pytest --cov=$(pkg_src)
 
 .PHONY: all  ## Run the most common rules used during development
 all: static test
